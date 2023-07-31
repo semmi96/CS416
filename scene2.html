@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="d3.v7.js"></script>
+    <title>CS416 Narrative Visualization</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&family=Rubik:ital,wght@0,400;1,800&display=swap"
+        rel="stylesheet">
+
+    <style>
+        circle {
+            stroke: #000;
+            stroke-width: 1;
+        }
+
+        .bold {
+            font-family: 'Roboto', sans-serif;
+            font-weight: 400;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <a href="index.html"><img src="img/blocks_pile.png" alt="flat lego pile icon" width="60" height="auto" class="center"
+            style="margin-top:30px; cursor: pointer;"></a>
+        <h1>LEGO Sets</h1>
+        <h2>Trends in the Size of Lego Sets</h2>
+    </div>
+
+    <br>
+    <p class="center">In the 73 years that LEGO has been manufacturing its toys, almost 20,000 unique sets have been
+        released. Let's explore some of the trends in the sizes of LEGO sets. </p>
+    <p class="center">In the chart below, we can see the growth in average set size over time.</p>
+
+    <br><br>
+
+    <div id="line-chart" style="background: linear-gradient(0deg, white, rgb(255, 243, 168) 50%, white 100%);">
+        <svg id="line-svg" width="1200" height="800"></svg>
+        <script>
+            let lineChartMargin = { top: 10, right: 30, bottom: 60, left: 80 },
+                lineChartWidth = 1200 - lineChartMargin.left - lineChartMargin.right,
+                lineChartHeight = 600 - lineChartMargin.top - lineChartMargin.bottom;
+
+            let lineChartSvg = d3.select("#line-svg")
+                .append("svg")
+                .attr("width", lineChartWidth + lineChartMargin.left + lineChartMargin.right)
+                .attr("height", lineChartHeight + lineChartMargin.top + lineChartMargin.bottom)
+                .append("g")
+                .attr("transform", "translate(" + lineChartMargin.left + "," + lineChartMargin.top + ")");
+
+            d3.csv("data/largest_sets.csv").then(function (data) {
+
+                data.forEach(function (d) {
+                    d.year = +d.year;
+                    d.num_parts = +d.num_parts;
+                });
+
+                // group data, calculate avg
+                let averages = Array.from(d3.rollup(data,
+                    v => d3.mean(v, d => d.num_parts),
+                    d => d.year));
+
+                averages = averages.map(function ([key, value]) {
+                    return { year: key, avg_num_parts: value }
+                }).sort((a, b) => a.year - b.year);
+
+                //x
+                let x = d3.scaleLinear()
+                    .domain(d3.extent(averages, function (d) { return d.year; }))
+                    .range([0, lineChartWidth]);
+                lineChartSvg.append("g")
+                    .attr("transform", "translate(0," + lineChartHeight + ")")
+                    .call(d3.axisBottom(x).tickFormat(d3.format("d")));
+
+                //y
+                let y = d3.scaleLinear()
+                    .domain([0, d3.max(averages, function (d) { return d.avg_num_parts; })])
+                    .range([lineChartHeight, 0]);
+                lineChartSvg.append("g")
+                    .call(d3.axisLeft(y));
+
+                //x label
+                lineChartSvg.append("text")
+                    .attr("transform", "translate(" + (lineChartWidth / 2) + " ," + (lineChartHeight + lineChartMargin.top + 45) + ")")
+                    .style("text-anchor", "middle")
+                    .text("Year")
+                    .attr('class', 'bold');
+
+                //y label
+                lineChartSvg.append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("y", 0 - lineChartMargin.left + 10)
+                    .attr("x", 0 - (lineChartHeight / 2))
+                    .attr("dy", "1em")
+                    .style("text-anchor", "middle")
+                    .text("Average Number of Parts")
+                    .attr('class', 'bold');
+
+                //line
+                let line = lineChartSvg.append("path")
+                    .datum(averages)
+                    .attr("fill", "none")
+                    .attr("stroke", "#E3000B")
+                    .attr("stroke-width", 2)
+                    .attr("d", d3.line()
+                        .x(function (d) { return x(d.year) })
+                        .y(function (d) { return y(d.avg_num_parts) })
+                    );
+
+                //animation
+                let totalLength = line.node().getTotalLength();
+                line.attr("stroke-dasharray", totalLength + " " + totalLength)
+                    .attr("stroke-dashoffset", totalLength)
+                    .transition()
+                    .delay(1000)
+                    .duration(3000)
+                    .ease(d3.easeLinear)
+                    .attr("stroke-dashoffset", 0);
+
+            });
+        </script>
+    </div>
+
+    <p class="center" style="margin-top: -120px;">What does this information tell us? LEGO was originally marketed as a
+        toy for kids, but over time it has grown to be
+        a hobby for all ages. Because of this, there has been pressure for the company to produce larger and larger sets
+        with more complex designs.
+        In this next chart, we can get a peek at how many sets greater than 1,000 pieces have been produced over time.
+    </p>
+    <p class="center">If you click the button to toggle the chart view, you will see details on the top 3 largest sets
+        ever produced by LEGO.</p>
+    <br>
+
+    <button id="toggle" class="center" style="width:auto; text-align: center;">Toggle Chart View</button>
+    <div id="scatter-bubble" style="background: linear-gradient(0deg, white, rgb(255, 243, 168) 50%, white 100%);">
+        <svg id="scatter-svg" width="1200" height="800"></svg>
+        <div id="tooltip" class="tooltip"></div>
+    </div>
+    <br>
+    <div>
+        <script>
+            var svg = d3.select("#scatter-svg"),
+                margin = { top: 50, right: 50, bottom: 100, left: 80 },
+                width = +svg.attr("width") - margin.left - margin.right,
+                height = +svg.attr("height") - margin.top - margin.bottom,
+                g = svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+            var xScale = d3.scaleLinear().rangeRound([0, width]);
+            var yScale = d3.scaleLinear().rangeRound([height, 0]);
+            var radiusScale = d3.scaleSqrt().range([2, 20]); //for bubble chart
+
+            var currentPlot = 'scatter'; //initial plot
+
+            //process data
+            Promise.all([
+                d3.csv('data/largest_sets.csv'),
+                d3.csv('data/color_frequency.csv')
+            ]).then(function (files) {
+                var data = files[0];
+                var colors = files[1].map(d => '#' + d.rgb);  //get colors from rgb column
+
+                data = data.filter(d => d.num_parts >= 1000);
+
+                data.forEach(function (d) {
+                    d.year = +d.year;
+                    d.num_parts = +d.num_parts;
+                });
+
+                xScale.domain(d3.extent(data, d => d.year));
+                yScale.domain(d3.extent(data, d => d.num_parts));
+                radiusScale.domain(d3.extent(data, d => d.num_parts));
+
+                var colorScale = d3.scaleOrdinal()
+                    .domain(data.map(d => d.name))
+                    .range(colors); 
+
+                //axes
+                var xAxis = d3.axisBottom(xScale).ticks(10).tickFormat(d3.format("d"));
+                var yAxis = d3.axisLeft(yScale).ticks(10);
+
+                //x label
+                svg.append("text")
+                    .attr("transform", "translate(" + (width / 2) + " ," + (height + margin.top + 50) + ")")
+                    .style("text-anchor", "middle")
+                    .text("Year")
+                    .attr('class', 'bold');
+
+                //y label
+                g.append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("y", 0 - margin.left + 10)
+                    .attr("x", 0 - (height / 2))
+                    .attr("dy", "1em")
+                    .style("text-anchor", "middle")
+                    .text("Set Size")
+                    .attr('class', 'bold');
+
+                g.append("g")
+                    .attr("transform", "translate(0," + height + ")")
+                    .call(xAxis);
+
+                g.append("g")
+                    .call(yAxis);
+
+
+                // circles
+                var circles = g.selectAll('circle')
+                    .data(data)
+                    .enter().append('circle')
+                    .attr('cx', d => xScale(d.year))
+                    .attr('cy', d => yScale(d.num_parts))
+                    .attr('r', currentPlot === 'scatter' ? 5 : d => radiusScale(d.num_parts))
+                    .attr('fill', d => colorScale(d.name)); 
+
+                // toggle between scatter plot and bubble chart
+                d3.select('#toggle').on('click', function () {
+                    currentPlot = currentPlot === 'scatter' ? 'bubble' : 'scatter';
+
+                    circles.transition()
+                        .duration(800)
+                        .attr('r', currentPlot === 'scatter' ? 5 : d => radiusScale(d.num_parts));
+
+                    if (currentPlot === 'bubble') {
+                        var largeSets = data.filter(d => d.num_parts > 9500);
+
+                        if (largeSets.length) {
+                            largeSets.forEach(function (largeSet) {
+                                var infoX = xScale(largeSet.year);
+                                var infoY = yScale(largeSet.num_parts);
+
+                                g.append('line')
+                                    .attr('x1', infoX)
+                                    .attr('y1', infoY)
+                                    .attr('x2', infoX - 38) 
+                                    .attr('y2', infoY)
+                                    .attr('stroke', 'black');
+
+                                var annotationText = g.append('text')
+                                    .attr('class', 'annotation')
+                                    .attr('x', infoX - 165)
+                                    .attr('y', infoY);
+
+                                annotationText.append('tspan')
+                                    .attr('class', 'bold')
+                                    .text('Set Name: ');
+
+                                annotationText.append('tspan')
+                                    .text(`${largeSet.name}`);
+
+                                annotationText.append('tspan')
+                                    .attr('x', infoX - 145)
+                                    .attr('dy', '1.2em')
+                                    .attr('class', 'bold')
+                                    .text('Year: ');
+
+                                annotationText.append('tspan')
+                                    .text(`${largeSet.year}`);
+
+                                annotationText.append('tspan')
+                                    .attr('x', infoX - 130)
+                                    .attr('dy', '1.2em')
+                                    .attr('class', 'bold')
+                                    .text('Pieces: ');
+
+                                annotationText.append('tspan')
+                                    .text(`${largeSet.num_parts}`);
+                            });
+                        }
+                    } else {
+                        g.selectAll('line').remove();
+                        g.selectAll('text.annotation').remove();
+                    }
+                });
+            });
+        </script>
+    </div>
+    <br>
+    <p class="center">As you can see, the density of circles for sets greater than 1,000 pieces greatly increases in
+        size over time. The first set that broke
+        1,000 pieces was in 1985, but LEGO has been producing their iconic toys since the late 1940s. Considering the
+        trend we see in the graph, we will likely
+        see sets that break the current record of 11,695 pieces in the near future.
+    </p>
+    <br><br>
+    <a href="scene3.html" style="text-decoration:none;"><button class="center">Next</button></a>
+    <a href="scene1.html" style="text-decoration:none;"><button class="center"
+            style="outline: 2px; outline-color: black; background-color: #0055BF; margin-bottom: 50px;">Back</button></a>
+
+    <br><br><br>
+    <div class="footer">
+        <h4>Sophia Emmi</h4>
+        <h4>Dataset: LEGO Catalog Database from rebrickable.com</h4>
+        <h4>Icons: Smashicons - Flaticon</h4>
+    </div>
+
+</body>
+
+</html>

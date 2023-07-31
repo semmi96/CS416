@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="d3.v7.js"></script>
+    <title>CS416 Narrative Visualization</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&family=Rubik:ital,wght@0,400;1,800&display=swap"
+        rel="stylesheet">
+    <style>
+        .bold {
+            font-family: 'Roboto', sans-serif;
+            font-weight: 400;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <a href="index.html"><img src="img/stacks.png" alt="stacked lego icon" width="60" height="auto" class="center"
+            style="margin-top:30px; cursor: pointer;"></a>
+        <h1>Brick Colors</h1>
+        <h2>From Least to Most Common</h2>
+    </div>
+
+    <p class="center">Access to Rebrickable's inventory data gives us insight into which LEGO brick colors are most
+        common. </p>
+    <p class="center">__________</p>
+    <p class="center" style="margin-top: 10px; font-weight: 500;">Hover over each bar to see precise quantities.</p>
+
+    <br><br>
+
+    <div id="tooltip">
+        <p><span id="value"></span></p>
+    </div>
+
+    <div id="bar-chart" style="background: linear-gradient(0deg, white, rgb(255, 243, 168) 50%, white 100%);">
+        <script>
+            var margin = { top: 0, right: 20, bottom: 160, left: 80 },
+                width = 1200 - margin.left - margin.right,
+                height = 600 - margin.top - margin.bottom;
+
+            var xValue = function (d) { return d.name; },
+                xScale = d3.scaleBand().range([0, width]).padding(0.1),
+                xMap = function (d) { return xScale(xValue(d)); },
+                xAxis = d3.axisBottom(xScale);
+
+            var yValue = function (d) { return d.quantity; },
+                yAxisScale = d3.scaleLinear().range([height, 0]),
+                yMap = function (d) { return yAxisScale(yValue(d)); },
+                yAxis = d3.axisLeft(yAxisScale).tickFormat(d3.format("~s"));
+
+            var cValue = function (d) { return "#" + d.rgb; },
+                colorScale = d3.scaleOrdinal();
+
+            var svg = d3.select("#bar-chart").append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+            // data
+            d3.csv("data/color_frequency.csv").then(function (data) {
+
+                data.forEach(function (d) {
+                    d.quantity = +d.quantity;
+
+                    console.log("Color: ", cValue(d));
+                    console.log("Quantity: ", d.quantity);
+                });
+
+                // colors from rgb column
+                colorScale.domain(data.map(cValue));
+
+                var threshold = 10000;
+                data = data.filter(function (d) {
+                    return d.quantity > threshold;
+                });
+
+                data.sort(function (a, b) {
+                    return d3.ascending(a.quantity, b.quantity);
+                });
+
+                //x
+                xScale.domain(data.map(xValue));
+                svg.append("g")
+                    .attr("class", "x axis")
+                    .attr("transform", "translate(0," + height + ")")
+                    .call(xAxis)
+                    .selectAll("text")
+                    .style("text-anchor", "end")
+                    .attr("dx", "-.8em")
+                    .attr("dy", ".15em")
+                    .attr("transform", "rotate(-45)");
+
+                //y
+                console.log(d3.max(data, yValue));
+                yAxisScale.domain([0, d3.max(data, yValue)]);
+                svg.append("g")
+                    .attr("class", "y axis")
+                    .call(yAxis);
+
+                //x label
+                svg.append("text")
+                    .attr("transform", "translate(" + (width / 2) + " ," + (height + margin.top + 90) + ")")
+                    .style("text-anchor", "middle")
+                    .text("Color")
+                    .attr('class', 'bold');
+
+                //y label
+                svg.append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("y", 0 - margin.left + 10)
+                    .attr("x", 0 - (height / 2))
+                    .attr("dy", "1em")
+                    .style("text-anchor", "middle")
+                    .text("Quantity")
+                    .attr('class', 'bold');
+
+                // bars
+                svg.selectAll(".bar")
+                    .data(data)
+                    .enter().append("rect")
+                    .attr("class", "bar")
+                    .attr("x", xMap)
+                    .attr("width", xScale.bandwidth())
+                    .attr("y", height) 
+                    .attr("height", 0)
+                    .style("fill", cValue)
+                    .on("mouseover", function (event, d) {
+                        d3.select("#tooltip")
+                            .select("#value")
+                            .html("<b>Color: </b>" + d.name + "<br/>" + "<b>Quantity: </b>" + d.quantity);
+                        d3.select("#tooltip").style("opacity", 1);
+                        d3.select(this).style("stroke", "black").style("stroke-width", "2px");
+                    })
+                    .on("mouseout", function () {
+                        d3.select("#tooltip").style("opacity", 0);
+                        d3.select(this).style("stroke", "none");
+                    })
+                    .transition() 
+                    .delay(500)
+                    .duration(3000)
+                    .attr("y", yMap) 
+                    .attr("height", function (d) { return height - yMap(d); }); 
+
+            });
+        </script>
+    </div>
+    <p class="center">In total, there are over 180 LEGO colors. However, for the sake of readability this chart contains
+        only those whose quantity values exceed 10,000.</p>
+
+    <br><br>
+
+    <a href="scene2.html" style="text-decoration:none;"><button class="center">Next</button></a>
+    <a href="index.html" style="text-decoration:none;"><button class="center"
+            style="outline: 2px; outline-color: black; background-color: #0055BF; margin-bottom: 50px;">Back</button></a>
+
+    <br><br><br>
+    <div class="footer">
+        <h4>Sophia Emmi</h4>
+        <h4>Dataset: LEGO Catalog Database from rebrickable.com</h4>
+        <h4>Icons: Smashicons - Flaticon</h4>
+    </div>
+
+</body>
+
+</html>
